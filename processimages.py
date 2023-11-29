@@ -5,7 +5,6 @@ from PIL import Image, ImageEnhance
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
-import datetime
 import shutil  # For copying files
 
 # Constants
@@ -13,18 +12,12 @@ RAW_FOLDER = 'raw'
 RAW_SQUARED_FOLDER = 'raw_squared'
 WATERMARKED_FOLDER = 'watermarked'
 WATERMARKED_SQUARED_FOLDER = 'watermark_squared'
+WATERMARK_OPACITY = 0.8 #Transparency 0-1 - 0 means invisible, 1 means solid
 WATERMARK_IMAGE = 'watermark.png'  # Assuming watermark.png is in the same directory as the script
-
-def generate_filename(base_name, extension):
-    counter = 1
-    filename = f"{base_name}.{extension}"
-
-    while os.path.exists(filename):
-        filename = f"{base_name}-{counter}.{extension}"
-        counter += 1
-
-    return filename
-output_csv_path = generate_filename(f'imageprocessor_{datetime.date.today().strftime("%d%b%Y").lower()}', 'csv')
+IMAGE_QUALITY = 100 #Change as needed, 1-100 - smaller number means smaller file size
+LOG_RESULTS = True #Change to False for faster processing and no CSV file
+SQUARE_PROCESSING = True
+WATERMARK_PROCESSING = True
 
 def square_image(image_path, save_path, suffix):
     image = Image.open(image_path)
@@ -40,8 +33,8 @@ def square_image(image_path, save_path, suffix):
         image = background
 
     image = image.convert('RGB')  # Ensure image is in RGB mode
-    image.save(new_file_path, "JPEG", quality=75)
-    print(f"Processed {image_path.name} to {new_filename}")
+    image.save(new_file_path, "JPEG", quality=IMAGE_QUALITY)
+    #print(f"Processed {image_path.name} to {new_filename}")
 
 
 def apply_watermark(image_stem, save_path, original_suffix, opacity=0.8):
@@ -57,7 +50,7 @@ def apply_watermark(image_stem, save_path, original_suffix, opacity=0.8):
 
     base_width, base_height = base_image.size
     watermark_width, watermark_height = watermark.size
-    scaling_factor = min(base_width / watermark_width, base_height / watermark_height) * 0.8
+    scaling_factor = min(base_width / watermark_width, base_height / watermark_height) * WATERMARK_OPACITY
     new_size = (int(watermark_width * scaling_factor), int(watermark_height * scaling_factor))
     position = (int((base_width - new_size[0]) / 2), int((base_height - new_size[1]) / 2))
     resized_watermark = watermark.resize(new_size, Image.LANCZOS)
@@ -70,28 +63,30 @@ def apply_watermark(image_stem, save_path, original_suffix, opacity=0.8):
     new_filename = image_stem + '_w.jpg'
     new_file_path = save_path / new_filename
     combined.save(new_file_path, "JPEG")
-    print(f"Watermarked {new_filename}")
+    #print(f"Watermarked {new_filename}")
 
 def process_image(image_path, folders):
     raw_image_name = image_path.stem + '_r' + image_path.suffix
     raw_image_path = folders['raw'] / raw_image_name
-    shutil.copy(image_path, raw_image_path)
-
-    square_image(raw_image_path, folders['raw_squared'], '_s')
-    apply_watermark(image_path.stem, folders['watermarked'], image_path.suffix)
     watermarked_image_name = image_path.stem + '_w.jpg'
     watermarked_image_path = folders['watermarked'] / watermarked_image_name
-    square_image(watermarked_image_path, folders['watermarked_squared'], '_s')
 
-    return {
-        "original": str(image_path),
-        "raw": str(raw_image_path),
-        "raw_squared": str(folders['raw_squared'] / (raw_image_name.replace(image_path.suffix, '_s.jpg'))),
-        "watermarked": str(watermarked_image_path),
-        "watermarked_squared": str(folders['watermarked_squared'] / watermarked_image_name.replace('.jpg', '_s.jpg'))
-    }
+    shutil.copy(image_path, raw_image_path)
+    if WATERMARK_PROCESSING: apply_watermark(image_path.stem, folders['watermarked'], image_path.suffix)
+    if SQUARE_PROCESSING: square_image(raw_image_path, folders['raw_squared'], '_s')
+    if WATERMARK_PROCESSING and SQUARE_PROCESSING: square_image(watermarked_image_path, folders['watermarked_squared'], '_s')    
 
-def process_images_parallel(folder_path, folders):
+    if LOG_RESULTS:
+        return {
+            "original": str(image_path),
+            "raw": str(raw_image_path),
+            "raw_squared": str(folders['raw_squared'] / (raw_image_name.replace(image_path.suffix, '_s.jpg'))),
+            "watermarked": str(watermarked_image_path),
+            "watermarked_squared": str(folders['watermarked_squared'] / watermarked_image_name.replace('.jpg', '_s.jpg'))
+        }
+
+def process_images_parallel_csv(folder_path, folders):
+    output_csv_path = 'data.csv'
     with open(output_csv_path, mode='w', newline='') as file:
         writer = csv.DictWriter(file, fieldnames=["original", "raw", "raw_squared", "watermarked", "watermarked_squared"])
         writer.writeheader()
@@ -103,6 +98,12 @@ def process_images_parallel(folder_path, folders):
 
             for future in futures:
                 writer.writerow(future.result())
+
+def process_images_parallel(folder_path, folders):
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        [executor.submit(process_image, image_path, folders)
+                    for image_path in folder_path.glob("*.*") 
+                    if image_path.is_file() and image_path.suffix.lower() in (".jpg", ".png")]
 
 def main():
     root = tk.Tk()
@@ -119,7 +120,10 @@ def main():
     for folder in folders.values():
         folder.mkdir(exist_ok=True)
 
-    process_images_parallel(folder_path, folders)
+    if LOG_RESULTS:
+        process_images_parallel_csv(folder_path, folders)
+    else:
+        process_images_parallel(folder_path, folders)
 
 if __name__ == '__main__':
     main()

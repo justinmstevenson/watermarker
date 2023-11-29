@@ -6,8 +6,11 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
 
+RAW_FOLDER = 'raw'
+WATERMARKED_FOLDER = 'watermarked'
+WATERMARK_OPACITY = 0.8 #Transparency 0-1 - 0 means invisible, 1 means solid
 WATERMARK_IMAGE = 'watermark.png'  # Assuming watermark.png is in the same directory as the script
-IMAGE_SUFFIX = '_w'
+IMAGE_QUALITY = 100 #Change as needed, 1-100 - smaller number means smaller file size
 CSV_FILENAME = 'data.csv'
 SUPPORTED_IMAGE_FORMATS = (".jpg", ".jpeg", ".png")
 
@@ -18,7 +21,7 @@ def calculate_watermark_size_and_position(watermark, base_image):
     watermark_width, watermark_height = watermark.size
 
     # Scaling factor for X % size relative to the base image
-    scaling_factor = min(base_width / watermark_width, base_height / watermark_height) * 0.8
+    scaling_factor = min(base_width / watermark_width, base_height / watermark_height) * WATERMARK_OPACITY
 
     new_size = (int(watermark_width * scaling_factor), int(watermark_height * scaling_factor))
 
@@ -41,7 +44,7 @@ def apply_watermark(image_path, save_path):
     combined.paste(watermark_resized, position, watermark_resized)
     combined = combined.convert("RGB")  
 
-    new_filename = image_path.stem + IMAGE_SUFFIX + '.jpg'
+    new_filename = image_path.stem + '.jpg'
     new_file_path = save_path / new_filename
     combined.save(new_file_path, "JPEG")
     print(f"Watermarked {image_path.stem}")
