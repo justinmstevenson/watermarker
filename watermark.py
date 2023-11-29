@@ -63,7 +63,7 @@ def process_images_in_folder(folder_path, save_path):
 
             for image_path in Path(folder_path).rglob("*"):
                 if image_path.is_file() and image_path.suffix.lower() in SUPPORTED_IMAGE_FORMATS:
-                    if not image_path.stem.endswith('_s') and not WATERMARKED_FOLDER in image_path:
+                    if not image_path.stem.endswith('_s') and not WATERMARKED_FOLDER in image_path: ## Needs new logic
                         futures.append(executor.submit(apply_watermark, image_path, save_path))
 
             for future in futures:
