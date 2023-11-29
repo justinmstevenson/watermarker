@@ -24,5 +24,7 @@ In the processimages.py main file, you have a couple of variables you can enable
 * SQUARE_PROCESSING - Turn off / on square processing - either True or False are valid values (case sensitive)
 * WATERMARK_PROCESSING - Turn off / on watermark processing - either True or False are valid values (case sensitive)
 
+watermark.py is currently non-functioning.
+
 Please comment any questions I would be happy to assist you.
 - Made by Justin Stevenson
